@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retail Store Demand Forecasting</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Retail Store Inventory Demand Forecasting</h1>
+        
+        <!-- Buttons for User Interaction -->
+        <div class="buttons">
+            <button onclick="loadDataset()">Load Dataset</button>
+            <button onclick="performEDA()">Perform EDA</button>
+            <button onclick="trainModel()">Train Model</button>
+            <button onclick="predict()">Predict</button>
+        </div>
+
+        <!-- Output Section -->
+        <div id="eda-output"></div>
+        <div id="prediction-output"></div>
+    </div>
+
+    <!-- Plotly.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.6.0"></script>
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
