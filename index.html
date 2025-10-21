@@ -3,29 +3,1258 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retail Store Demand Forecasting</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Retail Inventory Forecasting Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --secondary: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1e293b;
+            --light: #f8fafc;
+            --border: #e2e8f0;
+            --card-bg: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: var(--dark);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 24px;
+            margin-bottom: 24px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-header h2 {
+            font-size: 1.5rem;
+            color: var(--dark);
+        }
+
+        .card-body {
+            padding: 0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .grid-4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+        }
+
+        .btn-success {
+            background: var(--success);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 40px;
+        }
+
+        .file-upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: #f8fafc;
+            cursor: pointer;
+        }
+
+        .file-upload-area:hover, .file-upload-area.dragover {
+            border-color: var(--primary);
+            background: #f0f9ff;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-label {
+            cursor: pointer;
+            display: block;
+        }
+
+        .file-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+
+        .file-text {
+            color: var(--dark);
+        }
+
+        .file-text strong {
+            display: block;
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+        }
+
+        .file-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .kpi-label {
+            font-size: 0.9rem;
+            color: var(--secondary);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .stepper {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            color: var(--secondary);
+        }
+
+        .step-number {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--secondary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+        }
+
+        .step.active .step-number {
+            background: var(--primary);
+        }
+
+        .step:not(:last-child):after {
+            content: '';
+            width: 40px;
+            height: 2px;
+            background: var(--secondary);
+            margin: 0 15px;
+        }
+
+        .step.active:not(:last-child):after {
+            background: var(--primary);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .log-container {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #f1f5f9;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-danger {
+            background: #fef2f2;
+            color: var(--danger);
+            border: 1px solid #fecaca;
+        }
+
+        .tab-container {
+            margin-bottom: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .grid, .grid-2, .grid-3, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .stepper {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <h1>Retail Store Inventory Demand Forecasting</h1>
-        
-        <!-- Buttons for User Interaction -->
-        <div class="buttons">
-            <button onclick="loadDataset()">Load Dataset</button>
-            <button onclick="performEDA()">Perform EDA</button>
-            <button onclick="trainModel()">Train Model</button>
-            <button onclick="predict()">Predict</button>
+        <div class="header">
+            <h1>Retail Inventory Forecasting Dashboard</h1>
+            <p>Analyze sales patterns and forecast future demand with AI</p>
         </div>
 
-        <!-- Output Section -->
-        <div id="eda-output"></div>
-        <div id="prediction-output"></div>
+        <div class="stepper">
+            <div class="step active" id="step1">
+                <div class="step-number">1</div>
+                <div class="step-label">Load Data</div>
+            </div>
+            <div class="step" id="step2">
+                <div class="step-number">2</div>
+                <div class="step-label">Explore Data</div>
+            </div>
+            <div class="step" id="step3">
+                <div class="step-number">3</div>
+                <div class="step-label">Train Model</div>
+            </div>
+            <div class="step" id="step4">
+                <div class="step-number">4</div>
+                <div class="step-label">Forecast</div>
+            </div>
+        </div>
+
+        <div class="alert alert-danger hidden" id="errorBox"></div>
+
+        <!-- Step 1: Data Loading -->
+        <div class="card" id="cardLoad">
+            <div class="card-header">
+                <h2>Step 1: Load Your Retail Data</h2>
+            </div>
+            <div class="card-body">
+                <div class="file-upload-area" id="fileUploadArea">
+                    <input type="file" id="fileInput" accept=".csv,.json" class="file-input" />
+                    <label for="fileInput" class="file-label">
+                        <div class="file-icon">📁</div>
+                        <div class="file-text">
+                            <strong>Choose CSV File</strong>
+                            <span>or drag and drop your retail_store_inventory.csv here</span>
+                        </div>
+                    </label>
+                </div>
+                
+                <div class="file-info" id="fileInfo"></div>
+
+                <div class="btn-group mt-4">
+                    <button id="btnLoad" class="btn btn-primary">
+                        Load & Process Data
+                    </button>
+                    <button id="btnDemo" class="btn btn-secondary">
+                        Use Demo Data
+                    </button>
+                </div>
+
+                <div class="form-group mt-4">
+                    <div class="form-label">Data Summary</div>
+                    <div id="dataSummary" class="form-control" style="height: auto; min-height: 60px; background: #f8fafc;">
+                        No data loaded yet.
+                    </div>
+                </div>
+
+                <div class="table-container mt-4">
+                    <div id="tableMount"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Data Exploration -->
+        <div class="card disabled" id="cardEDA">
+            <div class="card-header">
+                <h2>Step 2: Explore Your Data</h2>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-4">
+                    <div class="form-group">
+                        <label class="form-label">Date Column</label>
+                        <select id="dateCol" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Target Column</label>
+                        <select id="targetCol" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Aggregation</label>
+                        <select id="aggFunc" class="form-control">
+                            <option value="sum">Sum</option>
+                            <option value="mean">Mean</option>
+                            <option value="last">Last Value</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rolling Window</label>
+                        <input type="number" id="rollingWindow" class="form-control" value="7" min="1" max="30">
+                    </div>
+                </div>
+
+                <div class="grid grid-3">
+                    <div class="form-group">
+                        <label class="form-label">Store Filter</label>
+                        <select id="storeFilter" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Product Filter</label>
+                        <select id="productFilter" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Region Filter</label>
+                        <select id="regionFilter" class="form-control"></select>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button id="btnEDA" class="btn btn-primary">Generate Visualizations</button>
+                </div>
+
+                <div class="tab-container mt-4">
+                    <div class="tabs">
+                        <div class="tab active" data-tab="time-series">Time Series</div>
+                        <div class="tab" data-tab="distribution">Distribution</div>
+                        <div class="tab" data-tab="seasonality">Seasonality</div>
+                        <div class="tab" data-tab="categories">Categories</div>
+                        <div class="tab" data-tab="regional">Regional Analysis</div>
+                    </div>
+
+                    <div class="tab-content active" id="time-series">
+                        <div class="chart-container">
+                            <canvas id="tsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="distribution">
+                        <div class="grid grid-2">
+                            <div class="chart-container">
+                                <canvas id="histChart"></canvas>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="boxPlot"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="seasonality">
+                        <div class="grid grid-2">
+                            <div class="chart-container">
+                                <canvas id="dowChart"></canvas>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="acfChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-container mt-4">
+                            <canvas id="seasonalChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="categories">
+                        <div class="grid grid-2">
+                            <div class="chart-container">
+                                <canvas id="cat1Chart"></canvas>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="cat2Chart"></canvas>
+                            </div>
+                        </div>
+                        <div class="grid grid-2 mt-4">
+                            <div class="chart-container">
+                                <canvas id="cat3Chart"></canvas>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="cat4Chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="regional">
+                        <div class="chart-container">
+                            <canvas id="regionTotalsChart"></canvas>
+                        </div>
+                        <div class="grid grid-2 mt-4">
+                            <div class="chart-container">
+                                <canvas id="topProductsOverallChart"></canvas>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="topProductsByRegionChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="table-container mt-4">
+                            <div id="regionTopTable"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Model Training -->
+        <div class="card disabled" id="cardModel">
+            <div class="card-header">
+                <h2>Step 3: Train Forecasting Model</h2>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-4">
+                    <div class="form-group">
+                        <label class="form-label">Model Type</label>
+                        <select id="modelType" class="form-control">
+                            <option value="LSTM">LSTM</option>
+                            <option value="GRU">GRU</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Sequence Length</label>
+                        <input type="number" id="seqLen" class="form-control" value="14" min="1" max="60">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Units</label>
+                        <input type="number" id="units" class="form-control" value="50" min="1" max="200">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dropout</label>
+                        <input type="number" id="dropout" class="form-control" value="0.2" min="0" max="0.5" step="0.1">
+                    </div>
+                </div>
+
+                <div class="grid grid-3">
+                    <div class="form-group">
+                        <label class="form-label">Epochs</label>
+                        <input type="number" id="epochs" class="form-control" value="50" min="1" max="200">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Batch Size</label>
+                        <input type="number" id="batch" class="form-control" value="32" min="1" max="128">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Horizon</label>
+                        <input type="number" id="horizon" class="form-control" value="30" min="1" max="90">
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button id="btnTrain" class="btn btn-primary">
+                        <span class="spinner hidden" id="spinner"></span>
+                        Train Model
+                    </button>
+                </div>
+
+                <div class="chart-container mt-4">
+                    <canvas id="lossChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Forecasting -->
+        <div class="card disabled" id="cardForecast">
+            <div class="card-header">
+                <h2>Step 4: Generate Forecasts</h2>
+            </div>
+            <div class="card-body">
+                <div class="btn-group">
+                    <button id="btnPredict" class="btn btn-primary">Generate Forecast</button>
+                    <button id="btnEvaluate" class="btn btn-success">Evaluate Model</button>
+                </div>
+
+                <div class="kpi-container mt-4" id="kpiContainer">
+                    <div class="kpi-card">
+                        <div class="kpi-value" id="kpiACC">-</div>
+                        <div class="kpi-label">Accuracy</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-value" id="kpiMAE">-</div>
+                        <div class="kpi-label">MAE</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-value" id="kpiRMSE">-</div>
+                        <div class="kpi-label">RMSE</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-value" id="kpiMAPE">-</div>
+                        <div class="kpi-label">MAPE</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-value" id="kpiSMAPE">-</div>
+                        <div class="kpi-label">SMAPE</div>
+                    </div>
+                </div>
+
+                <div class="chart-container mt-4">
+                    <canvas id="predChart"></canvas>
+                </div>
+
+                <div class="grid grid-2 mt-4">
+                    <div class="chart-container">
+                        <canvas id="residualChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="featureImportance"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Activity Log</h2>
+            </div>
+            <div class="card-body">
+                <div class="log-container" id="log"></div>
+            </div>
+        </div>
     </div>
 
-    <!-- Plotly.js library -->
-    <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.6.0"></script>
-    <script src="data.js"></script>
-    <script src="script.js"></script>
+    <script>
+        // Robust loader + Region/Product insights + Accuracy metric
+        let RAW_ROWS=[], FILTERED_ROWS=[], SERIES=[], DATES=[];
+        let MEAN=0, STD=1, MODEL=null, TRAIN_SPLIT_INDEX=null, CHARTS={};
+
+        const E=id=>document.getElementById(id);
+        const els={ date:()=>E('dateCol'), target:()=>E('targetCol'), agg:()=>E('aggFunc'), store:()=>E('storeFilter'), product:()=>E('productFilter'), region:()=>E('regionFilter') };
+        
+        function log(m){const t=new Date().toLocaleTimeString();E('log').innerHTML+=`[${t}] ${m}<br/>`;E('log').scrollTop=E('log').scrollHeight;}
+        function errorMsg(msg){const box=E('errorBox');box.textContent=msg;box.classList.remove('hidden');}
+        function clearError(){E('errorBox').classList.add('hidden');E('errorBox').textContent='';}
+        function setStepActive(n){const steps=document.querySelectorAll('.stepper .step');steps.forEach((s,i)=>s.classList.toggle('active',i<=n-1));E('cardEDA').classList.toggle('disabled',n<2);E('btnEDA').disabled=(n<2);E('cardModel').classList.toggle('disabled',n<3);E('btnTrain').disabled=(n<3);E('cardForecast').classList.toggle('disabled',n<4);E('btnPredict').disabled=(n<4);E('btnEvaluate').disabled=(n<4);}
+
+        // Utils
+        const tryNum=v=>(typeof v==='number'?v:Number(v));
+        const asDate=v=>{const d=new Date(v);return isNaN(d.getTime())?null:d;};
+        function basicStats(a){const n=a.length||1;const m=a.reduce((x,y)=>x+y,0)/n;const v=a.reduce((s,x)=>s+(x-m)**2,0)/n;return {mean:m,std:Math.sqrt(v)||1,min:Math.min(...a),max:Math.max(...a)};}
+        function zfit(a){const s=basicStats(a);MEAN=s.mean;STD=s.std;}
+        const z=a=>a.map(x=>(x-MEAN)/STD);
+        const iz=a=>a.map(x=>x*STD+MEAN);
+        function uniq(rows,key){const S=new Set();rows.forEach(r=>{const v=r[key];if(v!==undefined&&v!==null&&v!=='')S.add(String(v));});return Array.from(S).sort();}
+        function populateSelect(sel,opts,selected){sel.innerHTML='';opts.forEach(opt=>{const o=document.createElement('option');o.value=opt.value;o.textContent=opt.label;if(selected!=null&&selected===opt.value)o.selected=true;sel.appendChild(o);});}
+        function toTable(rows,limit=200){const m=E('tableMount');if(!rows.length){m.innerHTML='';return;}const keys=Object.keys(rows[0]).filter(k=>!k.startsWith('__'));let html=`<table><thead><tr>${keys.map(k=>`<th>${k}</th>`).join('')}</tr></thead><tbody>`;for(let i=0;i<Math.min(limit,rows.length);i++){const r=rows[i];html+=`<tr>${keys.map(k=>`<td>${r[k]??''}</td>`).join('')}</tr>`;}m.innerHTML=html+'</tbody></table>';}
+        function summarize(rows,dk,tk){const n=rows.length,first=rows[0]?.[dk],last=rows[n-1]?.[dk];const vals=rows.map(r=>tryNum(r[tk])).filter(Number.isFinite);const s=basicStats(vals);E('dataSummary').innerHTML=`<div><b>Rows:</b> ${n}</div><div><b>Date range:</b> ${first} → ${last}</div><div><b>Target:</b> ${tk} | <b>mean:</b> ${s.mean.toFixed(2)} <b>std:</b> ${s.std.toFixed(2)} <b>min:</b> ${s.min.toFixed(2)} <b>max:</b> ${s.max.toFixed(2)}</div>`;}
+
+        // Column detection
+        function detectColumns(rows){
+          if(!rows.length) return {dateKey:null, targetKey:null};
+          const names=Object.keys(rows[0]);
+          const norm=(s)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
+          const n=names.map(norm);
+          const dateC=['date','ds','day','timestamp','time'];
+          const targetC=['unitssold','demand','qty','quantity','sales','units','consumption','demandforecast','unitsordered','orders','value'];
+          const pick=cands=>{for(const c of cands){const i=n.indexOf(c);if(i!==-1)return names[i];}for(let i=0;i<n.length;i++) if(cands.some(c=>n[i].includes(c))) return names[i]; return null;};
+          const dateKey=pick(dateC)||names.find(x=>/date/i.test(x))||names[0];
+          let targetKey=pick(targetC)||names.find(x=>/Units Sold/i.test(x))||names.find(x=>/Demand Forecast/i.test(x))||names[1]||names[0];
+          return {dateKey,targetKey};
+        }
+
+        // Robust CSV (Papa)
+        function parseCSV(text){
+          const res = Papa.parse(text, { header:true, dynamicTyping:true, skipEmptyLines:true });
+          if(res.errors && res.errors.length){
+            const msg = res.errors.slice(0,3).map(e=>`${e.type} at row ${e.row}: ${e.message}`).join(' | ');
+            throw new Error('CSV parse error: '+msg);
+          }
+          return res.data;
+        }
+
+        // Demo
+        function syntheticData(n=365){
+          const start=new Date('2024-01-01'); const rows=[]; const regions=['North','South','East','West'];
+          for(let i=0;i<n;i++){
+            const d=new Date(start.getTime()+i*86400000);
+            const dow=d.getDay();
+            const region=regions[i%regions.length];
+            const y=Math.max(0,120+15*Math.sin(2*Math.PI*i/7)+(dow===6?18:0)+0.07*i+(Math.random()-0.5)*12 + (region==='North'?12:0));
+            rows.push({"Date":d.toISOString().slice(0,10),"Store ID":"S"+String(1+(i%15)).padStart(3,'0'),"Product ID":"P"+String(1+(i%30)).padStart(4,'0'),"Category":"Groceries","Region":region,"Weather Condition":"Sunny","Holiday/Promotion":(i%30===0?1:0),"Units Sold":Number(y.toFixed(2))});
+          }
+          return rows;
+        }
+
+        async function loadRowsFrom(kind){
+          clearError();
+          let rows=null;
+          try{
+            if(kind==='file'){
+              const f=E('fileInput').files[0];
+              if(!f){ throw new Error('Please choose a file first.'); }
+              const txt=await f.text();
+              rows = f.name.toLowerCase().endsWith('.json') ? JSON.parse(txt) : parseCSV(txt);
+              log(`Loaded ${rows.length} rows from ${f.name}`);
+            }else{
+              rows = syntheticData();
+              log(`Loaded ${rows.length} demo rows.`);
+            }
+          }catch(e){
+            errorMsg(e.message||String(e));
+            log('❌ '+(e.message||String(e)));
+            return null;
+          }
+          if(!Array.isArray(rows) || !rows.length){ errorMsg('No rows found in dataset.'); return null; }
+          rows = rows.filter(r => r && Object.keys(r).some(k => String(r[k]).trim()!==''));
+          return rows;
+        }
+
+        // Filters & aggregation
+        function applyFilters(){
+          const store=els.store().value, product=els.product().value, region=els.region().value;
+          FILTERED_ROWS = RAW_ROWS.filter(r =>
+            (store==='__ALL__'   || String(r.__store)===store) &&
+            (product==='__ALL__' || String(r.__product)===product) &&
+            (region==='__ALL__'  || String(r.__region)===region)
+          );
+        }
+        function aggregateByDate(dk,tk){
+          const agg=els.agg().value;
+          const map=new Map();
+          for(const r of FILTERED_ROWS){
+            const d=r[dk];
+            const v=tryNum(r[tk]);
+            if(!Number.isFinite(v)) continue;
+            if(!map.has(d)) map.set(d,[0,0,null]);
+            const a=map.get(d); a[0]+=v; a[1]+=1; a[2]=v;
+          }
+          const dates=Array.from(map.keys()).sort();
+          const series=dates.map(ds=>{
+            const[s,c,last]=map.get(ds);
+            if(agg==='sum') return s;
+            if(agg==='mean') return s/(c||1);
+            return last;
+          });
+          return {dates:dates.map(asDate), series};
+        }
+        function rebuildSeries(){
+          const dk=els.date().value, tk=els.target().value;
+          applyFilters();
+          const {dates,series} = aggregateByDate(dk, tk);
+          DATES=dates; SERIES=series;
+        }
+
+        // Charts
+        function lineChart(id,labels,data,label,extra=[]){
+          if(CHARTS[id]) CHARTS[id].destroy();
+          const ctx=E(id).getContext('2d');
+          CHARTS[id]=new Chart(ctx,{
+            type:'line',
+            data:{labels, datasets:[{label,data,fill:false,tension:0.2,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)'}, ...extra]},
+            options:{
+              responsive:true, maintainAspectRatio:false,
+              plugins:{ legend:{labels:{color:'#1e293b'}}, tooltip:{mode:'index',intersect:false}},
+              scales:{ x:{ticks:{color:'#64748b'}}, y:{ticks:{color:'#64748b'}} }
+            }
+          });
+        }
+        function barChart(id,labels,data,label,colors){
+          if(CHARTS[id]) CHARTS[id].destroy();
+          const ctx=E(id).getContext('2d');
+          CHARTS[id]=new Chart(ctx,{
+            type:'bar',
+            data:{labels, datasets:[{label, data, backgroundColor: colors}]},
+            options:{
+              responsive:true, maintainAspectRatio:false,
+              plugins:{ legend:{labels:{color:'#1e293b'}}},
+              scales:{ x:{ticks:{color:'#64748b'}}, y:{ticks:{color:'#64748b'}} }
+            }
+          });
+        }
+        function barChartStacked(id, labels, datasets){
+          if(CHARTS[id]) CHARTS[id].destroy();
+          const ctx=E(id).getContext('2d');
+          CHARTS[id]=new Chart(ctx,{
+            type:'bar',
+            data:{ labels, datasets },
+            options:{
+              responsive:true, maintainAspectRatio:false,
+              plugins:{ legend:{labels:{color:'#1e293b'}}},
+              scales:{
+                x:{ stacked:true, ticks:{color:'#64748b'} },
+                y:{ stacked:true, ticks:{color:'#64748b'} }
+              }
+            }
+          });
+        }
+        function getPalette(n){
+          const out=[];
+          for(let i=0;i<n;i++){ const h = Math.round((360*i)/Math.max(1,n)); out.push(`hsl(${h} 80% 55% / 0.85)`); }
+          return out;
+        }
+
+        // Category helpers
+        function sumByCategory(rows, key, targetKey){
+          const sum=new Map();
+          for(const r of rows){
+            const k=r[key]; const v=tryNum(r[targetKey]);
+            if(k==null || !Number.isFinite(v)) continue;
+            sum.set(k,(sum.get(k)||0)+v);
+          }
+          const labels=Array.from(sum.keys());
+          const data=labels.map(k=>sum.get(k));
+          return {labels,data};
+        }
+        function topKByCategorySum(rows, key, targetKey, k=10){
+          const m = sumByCategory(rows, key, targetKey);
+          const pairs = m.labels.map((lab,i)=>({lab,val:m.data[i]})).sort((a,b)=>b.val-a.val).slice(0,k);
+          return {labels:pairs.map(p=>p.lab), data:pairs.map(p=>p.val)};
+        }
+
+        // EDA
+        function renderEDA(){
+          if(!SERIES.length){ log('Load data first.'); return; }
+          const tk=els.target().value;
+          const labels=DATES.map(d=>d? d.toISOString().slice(0,10):'');
+
+          // Core 4
+          const rw=Math.max(3, Number(E('rollingWindow').value)||7);
+          const roll=(function(arr,w){const out=[];for(let i=0;i<arr.length;i++){const s=Math.max(0,i-w+1);const sl=arr.slice(s,i+1);out.push(sl.reduce((a,b)=>a+b,0)/sl.length);}return out;})(SERIES,rw);
+          lineChart('tsChart', labels, SERIES, 'Target', [{label:`Rolling mean (${rw})`, data:roll, fill:false, borderDash:[6,6], tension:0.2, borderColor:'#f59e0b'}]);
+
+          const hist=(function(arr,bins=24){const min=Math.min(...arr),max=Math.max(...arr);const step=(max-min)/(bins||1)||1;const edges=Array.from({length:bins+1},(_,i)=>min+i*step);const counts=new Array(bins).fill(0);for(const v of arr){let idx=Math.min(Math.floor((v-min)/step),bins-1);if(idx<0) idx=0;counts[idx]++;}const labels=counts.map((_,i)=>`${edges[i].toFixed(1)}–${edges[i+1].toFixed(1)}`);return{labels,counts};})(SERIES,24);
+          barChart('histChart', hist.labels, hist.counts, 'Histogram', getPalette(hist.labels.length));
+
+          const dow=(function(dates,series){const sums=[0,0,0,0,0,0,0], cnt=[0,0,0,0,0,0,0];for(let i=0;i<series.length;i++){const d=dates[i];if(!(d instanceof Date)) continue;const k=d.getDay();sums[k]+=series[i];cnt[k]++;}const avgs=sums.map((s,i)=>cnt[i]? s/cnt[i]:0);return{labels:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], avgs};})(DATES,SERIES);
+          barChart('dowChart', dow.labels, dow.avgs, 'Mean by Day of Week', getPalette(dow.labels.length));
+
+          const ac=(function(arr,maxLag=30){const n=arr.length,mean=arr.reduce((a,b)=>a+b,0)/n;const denom=arr.reduce((s,x)=>s+(x-mean)*(x-mean),0)||1;const out=[];for(let lag=1;lag<=maxLag;lag++){let num=0;for(let t=lag;t<n;t++){num+=(arr[t]-mean)*(arr[t-lag]-mean);}out.push(num/denom);}return out;})(SERIES,30);
+          barChart('acfChart', Array.from({length:30},(_,i)=>`lag ${i+1}`), ac, 'Autocorrelation (1–30)', getPalette(30));
+
+          // Additional charts
+          const seasonal=(function(dates,series){const months=Array(12).fill(0).map(()=>[]);for(let i=0;i<series.length;i++){const d=dates[i];if(!(d instanceof Date)) continue;const m=d.getMonth();months[m].push(series[i]);}return months.map(m=>m.length? m.reduce((a,b)=>a+b,0)/m.length : 0);})(DATES,SERIES);
+          barChart('seasonalChart', ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], seasonal, 'Seasonal Pattern', getPalette(12));
+
+          // Categorical 4 (auto picks)
+          const fields = ["Category","Region","Weather Condition","Holiday/Promotion"];
+          const available = fields.filter(f => FILTERED_ROWS.some(r=>r[f]!==undefined));
+          const fallbacks = ["Store ID","Product ID"].filter(f => FILTERED_ROWS.some(r=>r[f]!==undefined));
+          const targets = available.concat(fallbacks).slice(0,4);
+
+          function meanByCategory(rows, key, targetKey){
+            const sum=new Map(), cnt=new Map();
+            for(const r of rows){ const k=r[key]; const v=tryNum(r[targetKey]); if(k==null || !Number.isFinite(v)) continue; sum.set(k,(sum.get(k)||0)+v); cnt.set(k,(cnt.get(k)||0)+1); }
+            const labels=Array.from(sum.keys()); const data=labels.map(k=>sum.get(k)/(cnt.get(k)||1)); return {labels,data};
+          }
+
+          const p1 = meanByCategory(FILTERED_ROWS, targets[0], tk);
+          barChart('cat1Chart', p1.labels, p1.data, `${targets[0]} — mean ${tk}`, getPalette(p1.labels.length));
+
+          const p2 = meanByCategory(FILTERED_ROWS, targets[1], tk);
+          barChart('cat2Chart', p2.labels, p2.data, `${targets[1]} — mean ${tk}`, getPalette(p2.labels.length));
+
+          const p3 = (function(){ const tmp = topKByCategorySum(FILTERED_ROWS, targets[2], tk, 10); return tmp; })();
+          barChart('cat3Chart', p3.labels, p3.data, `Top ${Math.min(10,p3.labels.length)} ${targets[2]} — total ${tk}`, getPalette(p3.labels.length));
+
+          const p4 = (function(){ const tmp = topKByCategorySum(FILTERED_ROWS, targets[3], tk, 10); return tmp; })();
+          barChart('cat4Chart', p4.labels, p4.data, `Top ${Math.min(10,p4.labels.length)} ${targets[3]} — total ${tk}`, getPalette(p4.labels.length));
+
+          // Region & Product Insights
+          const regKey='__region', prodKey='__product';
+          const regions = uniq(FILTERED_ROWS, regKey);
+          const regionTotals = sumByCategory(FILTERED_ROWS, regKey, tk);
+          barChart('regionTotalsChart', regionTotals.labels, regionTotals.data, `Total ${tk} by Region`, getPalette(regionTotals.labels.length));
+
+          const topProdOverall = topKByCategorySum(FILTERED_ROWS, prodKey, tk, 10);
+          barChart('topProductsOverallChart', topProdOverall.labels, topProdOverall.data, `Top 10 Products — total ${tk}`, getPalette(topProdOverall.labels.length));
+
+          const regionColors = getPalette(regions.length);
+          const stackedDatasets = regions.map((r,idx)=>{
+            const data = topProdOverall.labels.map(p => {
+              let s=0;
+              for(const row of FILTERED_ROWS){
+                if(String(row[prodKey])===String(p) && String(row[regKey])===String(r)){
+                  const v=tryNum(row[tk]); if(Number.isFinite(v)) s+=v;
+                }
+              }
+              return s;
+            });
+            return { label: r, data, backgroundColor: regionColors[idx] };
+          });
+          barChartStacked('topProductsByRegionChart', topProdOverall.labels, stackedDatasets);
+
+          // Mini table: top product per region
+          let html = '<table><thead><tr><th>Region</th><th>Top Product</th><th>Total '+tk+'</th></tr></thead><tbody>';
+          for(const r of regions){
+            const sums=new Map();
+            for(const row of FILTERED_ROWS){
+              if(String(row[regKey])!==String(r)) continue;
+              const p=row[prodKey]; const v=tryNum(row[tk]); if(!Number.isFinite(v)) continue;
+              sums.set(p,(sums.get(p)||0)+v);
+            }
+            let bestProd='—', bestVal=0;
+            for(const [p,val] of sums.entries()){ if(val>bestVal){bestVal=val;bestProd=p;} }
+            html+=`<tr><td>${r}</td><td>${bestProd}</td><td>${bestVal.toFixed(2)}</td></tr>`;
+          }
+          html+='</tbody></table>';
+          E('regionTopTable').innerHTML = html;
+
+          log('EDA rendered with region/product insights.');
+          setStepActive(3);
+        }
+
+        // Windowing
+        function makeWindows(series,seqLen){ const X=[],y=[]; for(let i=0;i+seqLen<series.length;i++){ X.push(series.slice(i,i+seqLen)); y.push(series[i+seqLen]); } return {X,y}; }
+        function splitXY(X,y, testRatio=0.2){ const n=X.length, nTest=Math.max(1,Math.floor(n*testRatio)), nTrain=n-nTest; TRAIN_SPLIT_INDEX=nTrain; return {Xtr:X.slice(0,nTrain), ytr:y.slice(0,nTrain), Xte:X.slice(nTrain), yte:y.slice(nTrain)}; }
+
+        // Model
+        function buildModel(kind, seqLen, units, dropout){
+          const m=tf.sequential();
+          const rnn=(kind==='LSTM') ? tf.layers.lstm({units, inputShape:[seqLen,1], returnSequences:false, dropout})
+                              : tf.layers.gru ({units, inputShape:[seqLen,1], returnSequences:false, dropout});
+          m.add(rnn); m.add(tf.layers.dense({units:32, activation:'relu'})); m.add(tf.layers.dense({units:1}));
+          m.compile({optimizer:tf.train.adam(), loss:'meanSquaredError'});
+          return m;
+        }
+        async function trainModel(){
+          if(!SERIES.length){ log('Load data first.'); return; }
+          const seqLen=Number(E('seqLen').value), units=Number(E('units').value), dropout=Number(E('dropout').value);
+          const epochs=Number(E('epochs').value), batch=Number(E('batch').value), kind=E('modelType').value;
+
+          zfit(SERIES);
+          const zs=z(SERIES);
+          const {X,y}=makeWindows(zs, seqLen);
+          if(X.length<10){ log('❌ Not enough data for chosen sequence length.'); return; }
+          const {Xtr,ytr,Xte,yte}=splitXY(X,y,0.2);
+
+          const tXtr=tf.tensor3d(Xtr.map(x=>x.map(v=>[v])));
+          const tytr=tf.tensor2d(ytr.map(v=>[v]));
+          const tXte=tf.tensor3d(Xte.map(x=>x.map(v=>[v])));
+          const tyte=tf.tensor2d(yte.map(v=>[v]));
+
+          if(MODEL){ MODEL.dispose(); MODEL=null; }
+          MODEL=buildModel(kind, seqLen, units, dropout);
+
+          if(CHARTS.lossChart) CHARTS.lossChart.destroy();
+          CHARTS.lossChart = new Chart(E('lossChart').getContext('2d'),{
+            type:'line',
+            data:{labels:[], datasets:[
+              {label:'Train Loss', data:[], fill:false, tension:0.1, borderColor:'#3b82f6'},
+              {label:'Val Loss', data:[], fill:false, borderDash:[6,6], tension:0.1, borderColor:'#f59e0b'}
+            ]},
+            options:{
+              responsive:true, maintainAspectRatio:false,
+              plugins:{ legend:{labels:{color:'#1e293b'}} },
+              scales:{ x:{ticks:{color:'#64748b'}}, y:{ticks:{color:'#64748b'}} }
+            }
+          });
+
+          E('spinner').classList.remove('hidden');
+          E('btnTrain').disabled=true;
+          log(`Training ${kind}(${units}) for ${epochs} epochs, batch ${batch}...`);
+
+          await MODEL.fit(tXtr,tytr,{
+            epochs, batchSize:batch, validationSplit:0.1, shuffle:false,
+            callbacks:{
+              onEpochEnd: async (epoch, logs)=>{
+                CHARTS.lossChart.data.labels.push(epoch+1);
+                CHARTS.lossChart.data.datasets[0].data.push(Number(logs.loss.toFixed(6)));
+                CHARTS.lossChart.data.datasets[1].data.push(Number((logs.val_loss??NaN).toFixed(6)));
+                CHARTS.lossChart.update();
+                log(`Epoch ${epoch+1}/${epochs} — loss=${logs.loss.toFixed(6)} val=${(logs.val_loss??0).toFixed(6)}`);
+                await tf.nextFrame();
+              }
+            }
+          });
+
+          tXtr.dispose(); tytr.dispose();
+          window.__tXtest=tXte; window.__tytest=tyte;
+          E('spinner').classList.add('hidden');
+          log('✅ Training complete.');
+          setStepActive(4);
+          E('btnPredict').disabled=false;
+          E('btnEvaluate').disabled=false;
+        }
+
+        // Prediction & Evaluation
+        function oneStepPredictSequence(model,lastWindow,h){
+          const out=[]; let win=lastWindow.slice();
+          for(let i=0;i<h;i++){
+            const x=tf.tensor3d([win.map(v=>[v])]); const yhat=model.predict(x);
+            const val=yhat.dataSync()[0]; x.dispose(); yhat.dispose();
+            out.push(val); win=win.slice(1).concat(val);
+          }
+          return out;
+        }
+        function predictFuture(){
+          if(!MODEL){ log('Train model first.'); return; }
+          const seqLen=Number(E('seqLen').value), horizon=Number(E('horizon').value);
+          const zs=z(SERIES); const last=zs.slice(zs.length-seqLen);
+          if(last.length<seqLen){ log('❌ Not enough data for sequence length.'); return; }
+          const zf=oneStepPredictSequence(MODEL,last,horizon); const f=iz(zf);
+
+          const lastDate = DATES[DATES.length-1] || new Date(); const futLabels=[];
+          for(let i=1;i<=horizon;i++){ const d=new Date(lastDate.getTime()+i*86400000); futLabels.push(d.toISOString().slice(0,10)); }
+          const combinedLabels = DATES.map(d=>d? d.toISOString().slice(0,10):'').concat(futLabels);
+          lineChart('predChart', combinedLabels, SERIES.concat(Array(horizon).fill(null)), 'Actual', [
+            {label:'Forecast', data:Array(SERIES.length).fill(null).concat(f), fill:false, borderDash:[4,4], tension:0.2, borderColor:'#f59e0b'}
+          ]);
+          log('✅ Forecast plotted.');
+        }
+        function evaluateTest(){
+          if(!MODEL || !window.__tXtest || !window.__tytest){ log('Train model first.'); return; }
+          const tXte=window.__tXtest, tyte=window.__tytest;
+          const predsZ=MODEL.predict(tXte);
+          const preds=predsZ.arraySync().map(r=>r[0]);
+          const trueZ=tyte.arraySync().map(r=>r[0]);
+          const yhat=iz(preds), ytrue=iz(trueZ);
+
+          function MAE(t,p){ const n=t.length; let s=0; for(let i=0;i<n;i++) s+=Math.abs(t[i]-p[i]); return s/n; }
+          function RMSE(t,p){ const n=t.length; let s=0; for(let i=0;i<n;i++){ const e=t[i]-p[i]; s+=e*e; } return Math.sqrt(s/n); }
+          function MAPE(t,p){ const eps=1e-8; const n=t.length; let s=0,c=0; for(let i=0;i<n;i++){ if(Math.abs(t[i])<eps) continue; s+=Math.abs((p[i]-t[i])/t[i]); c++; } return c? s/c : 0; }
+          function SMAPE(t,p){ const eps=1e-8; const n=t.length; let s=0; for(let i=0;i<n;i++){ s+=Math.abs(p[i]-t[i])/(Math.abs(t[i])+Math.abs(p[i])+eps); } return (2/n)*s; }
+
+          const mae=MAE(ytrue,yhat), rmse=RMSE(ytrue,yhat), mape=MAPE(ytrue,yhat), smape=SMAPE(ytrue,yhat);
+          const acc=Math.max(0,Math.min(1,1-smape/2));
+          E('kpiACC').textContent=(100*acc).toFixed(2)+'%';
+          E('kpiMAE').textContent=mae.toFixed(3);
+          E('kpiRMSE').textContent=rmse.toFixed(3);
+          E('kpiMAPE').textContent=(100*mape).toFixed(2)+'%';
+          E('kpiSMAPE').textContent=(100*smape).toFixed(2)+'%';
+
+          const seqLen=Number(E('seqLen').value);
+          const {X,y}=makeWindows(z(SERIES), seqLen);
+          const start = TRAIN_SPLIT_INDEX + seqLen;
+          const labels = DATES.slice(start, start+ytrue.length).map(d=>d? d.toISOString().slice(0,10):'');
+          lineChart('predChart', labels, ytrue, 'Actual (Test)', [
+            {label:'Predicted (Test)', data:yhat, fill:false, borderDash:[6,2], tension:0.2, borderColor:'#f59e0b'}
+          ]);
+          predsZ.dispose();
+          log('✅ Evaluation complete.');
+        }
+
+        // Wiring
+        async function handleLoad(kind){
+          const rows = await loadRowsFrom(kind);
+          if(!rows) return;
+
+          try{
+            const names = Object.keys(rows[0]);
+            const {dateKey,targetKey} = detectColumns(rows);
+            RAW_ROWS = rows.map(r=>({
+              ...r,
+              __date:r[dateKey],
+              __store:r["Store ID"]??r["store"]??r["store_id"],
+              __product:r["Product ID"]??r["product"]??r["product_id"],
+              __region:r["Region"]??r["region"]
+            }));
+
+            const dateOpts = names.map(n=>({value:n,label:n}));
+            const numCols = names.filter(n => rows.some(rr => Number.isFinite(tryNum(rr[n]))));
+            const targetOpts = numCols.map(n=>({value:n,label:n}));
+            const wrap = (arr,key)=>["__ALL__"].concat(uniq(arr,key));
+            populateSelect(E('dateCol'), dateOpts, dateKey||names[0]);
+            populateSelect(E('targetCol'), targetOpts, targetKey || (numCols[0]||names[0]));
+            populateSelect(E('storeFilter'), wrap(RAW_ROWS,'__store').map(v=>({value:v,label:v==="__ALL__"?"All":v})),"__ALL__");
+            populateSelect(E('productFilter'), wrap(RAW_ROWS,'__product').map(v=>({value:v,label:v==="__ALL__"?"All":v})),"__ALL__");
+            populateSelect(E('regionFilter'), wrap(RAW_ROWS,'__region').map(v=>({value:v,label:v==="__ALL__"?"All":v})),"__ALL__");
+
+            applyFilters();
+            const dk=E('dateCol').value, tk=E('targetCol').value;
+            ({dates:DATES, series:SERIES} = aggregateByDate(dk,tk));
+
+            RAW_ROWS.sort((a,b)=>(asDate(a.__date)||0)-(asDate(b.__date)||0));
+            toTable(RAW_ROWS);
+            summarize(RAW_ROWS, dk, tk);
+
+            setStepActive(2);
+            E('btnEDA').disabled=false;
+            E('btnTrain').disabled=true;
+            E('btnPredict').disabled=true;
+            E('btnEvaluate').disabled=true;
+          }catch(e){
+            errorMsg('Failed to prepare data: '+(e.message||String(e)));
+            log('❌ '+(e.message||String(e)));
+          }
+        }
+        function reprepare(){
+          if(!RAW_ROWS.length) return;
+          rebuildSeries();
+          summarize(RAW_ROWS, E('dateCol').value, E('targetCol').value);
+          setStepActive(2);
+          log('Filters/columns changed. Re-run EDA and training.');
+        }
+
+        // Tab functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            // Remove active class from all tabs and contents
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding content
+            tab.classList.add('active');
+            const tabId = tab.getAttribute('data-tab');
+            document.getElementById(tabId).classList.add('active');
+          });
+        });
+
+        // File upload enhancements
+        const fileUploadArea = E('fileUploadArea');
+        const fileInput = E('fileInput');
+
+        fileUploadArea.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          fileUploadArea.classList.add('dragover');
+        });
+
+        fileUploadArea.addEventListener('dragleave', () => {
+          fileUploadArea.classList.remove('dragover');
+        });
+
+        fileUploadArea.addEventListener('drop', (e) => {
+          e.preventDefault();
+          fileUploadArea.classList.remove('dragover');
+          if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            const file = fileInput.files[0];
+            E('fileInfo').innerHTML = `<strong>Selected file:</strong> ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            E('fileInfo').style.display = 'block';
+          }
+        });
+
+        fileInput.addEventListener('change', () => {
+          if (fileInput.files.length) {
+            const file = fileInput.files[0];
+            E('fileInfo').innerHTML = `<strong>Selected file:</strong> ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            E('fileInfo').style.display = 'block';
+          }
+        });
+
+        // Event listeners
+        E('btnLoad').addEventListener('click',()=>handleLoad('file'));
+        E('btnDemo').addEventListener('click',()=>handleLoad('demo'));
+        E('btnEDA').addEventListener('click',renderEDA);
+        E('btnTrain').addEventListener('click',()=>{trainModel().catch(e=>{console.error(e);log(`❌ ${e.message}`);}).finally(()=>{E('btnTrain').disabled=false;});});
+        E('btnPredict').addEventListener('click',()=>{try{predictFuture();}catch(e){console.error(e);log(`❌ ${e.message}`);}});
+        E('btnEvaluate').addEventListener('click',()=>{try{evaluateTest();}catch(e){console.error(e);log(`❌ ${e.message}`);}});
+        ['dateCol','targetCol','aggFunc','storeFilter','productFilter','regionFilter'].forEach(id=>E(id).addEventListener('change',reprepare));
+
+        setStepActive(1);
+        log('Ready. Step 1: load a dataset (CSV/JSON or Demo).');
+    </script>
 </body>
 </html>
